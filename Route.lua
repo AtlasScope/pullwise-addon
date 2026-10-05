@@ -173,7 +173,9 @@ function Route.Validate(data)
     if type(stop) ~= "table" then
       return fail("invalid")
     end
-    if stop.boss ~= nil then
+    if stop.boss ~= nil and stop.forces ~= nil then
+      return fail("invalid") -- a stop is a pull or a boss, never both
+    elseif stop.boss ~= nil then
       if not isId(stop.boss) then
         return fail("invalid")
       end

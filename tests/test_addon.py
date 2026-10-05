@@ -166,6 +166,7 @@ class RouteTests(unittest.TestCase):
         self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, {"note": "x"}])), "invalid")
         self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, "pull"])), "invalid")
         self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, {"boss": 0}])), "invalid")
+        self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, {"boss": 99991, "forces": 40}])), "invalid")
         self.assertFails(encode([1, 2, 3]), "invalid")
 
     def test_deep_nesting_is_rejected_before_parsing(self):
