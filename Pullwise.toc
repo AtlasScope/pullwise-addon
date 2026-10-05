@@ -1,0 +1,8 @@
+## Interface: 120100
+## Title: Pullwise
+## Notes: Turns combat logging on for Mythic+ keys and off afterwards.
+## Author: Pullwise
+## Version: @project-version@
+## X-License: MIT
+
+Pullwise.lua
