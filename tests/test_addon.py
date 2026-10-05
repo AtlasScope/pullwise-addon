@@ -157,7 +157,6 @@ class RouteTests(unittest.TestCase):
         self.assertFails(encode(dict(SAMPLE, total="460")), "invalid")
         self.assertFails(encode(dict(SAMPLE, dungeon=-1)), "invalid")
         self.assertFails(encode(dict(SAMPLE, dungeon=1.5)), "invalid")
-        self.assertFails(encode(dict(SAMPLE, season="one")), "invalid")
         self.assertFails(encode(dict(SAMPLE, stops=[])), "invalid")
         self.assertFails(encode(dict(SAMPLE, stops={"a": 1})), "invalid")
         self.assertFails(encode(dict(SAMPLE, stops=[{"boss": 1}])), "invalid")  # no pulls
@@ -168,6 +167,23 @@ class RouteTests(unittest.TestCase):
         self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, {"boss": 0}])), "invalid")
         self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, {"boss": 99991, "forces": 40}])), "invalid")
         self.assertFails(encode([1, 2, 3]), "invalid")
+
+    def test_season_is_a_name_or_number_and_never_blocks_a_route(self):
+        route, _ = self.decode(encode(dict(SAMPLE, season="Midnight Season 2")))
+        self.assertEqual(text(route.season), "Midnight Season 2")
+        route, _ = self.decode(encode(dict(SAMPLE, season=2)))
+        self.assertEqual(route.season, 2)
+        route, _ = self.decode(encode(dict(SAMPLE, season={"odd": True})))
+        self.assertIsNone(route.season)
+
+    def test_reads_the_route_the_site_writes(self):
+        # Written by the Mythic+ pages thread from the route builder's export (Kings' Rest).
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kings-rest-route.txt")
+        with open(path) as f:
+            route, _ = self.decode(f.read())
+        self.assertIsNotNone(route)
+        self.assertEqual(route.dungeon, 249)
+        self.assertEqual(route.total, 608)
 
     def test_deep_nesting_is_rejected_before_parsing(self):
         deep = [1]

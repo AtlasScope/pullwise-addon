@@ -227,10 +227,12 @@ function Window.ShowRoute(route, many)
     return
   end
 
-  local name = dungeonName(route.dungeon)
-  f.title:SetText(route.title and (name .. ": " .. route.title) or name)
+  -- The window title is the game's own (localized) dungeon name; the route's title, written on
+  -- the site in its language, goes on the line below rather than being joined to it.
+  f.title:SetText(dungeonName(route.dungeon))
   local by = route.author and (" · by " .. route.author) or ""
-  f.summary:SetText(GREY .. "Enemy forces needed: " .. route.total .. by .. "|r")
+  local numbers = GREY .. "Enemy forces needed: " .. route.total .. by .. "|r"
+  f.summary:SetText(route.title and (route.title .. "\n" .. numbers) or numbers)
 
   local y, width = 0, f.content:GetWidth()
   for i, r in ipairs(ns.Route.Rows(route)) do
