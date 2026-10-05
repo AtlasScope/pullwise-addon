@@ -76,14 +76,16 @@ class GameTests(unittest.TestCase):
         self.assertTrue(self.ns.ImportText(encode(SAMPLE)))
         window = self.frame("PullwiseRouteFrame")
         self.assertTrue(window.shown)
-        self.assertEqual(window.title.text, "Test Dungeon: Test route")
+        self.assertEqual(window.title.text, "Test Dungeon")
         self.assertEqual(window.status.text, "Route saved.")
         self.assertEqual(self.g.PullwiseDB.routes[9999].route.total, 460)
         self.assertIsNotNone(box)
 
-    def test_title_that_names_the_dungeon_isnt_repeated(self):
-        self.ns.ImportText(encode(dict(SAMPLE, title="Test Dungeon: fast route")))
-        self.assertEqual(self.frame("PullwiseRouteFrame").title.text, "Test Dungeon: fast route")
+    def test_dungeon_name_is_the_title_and_the_route_title_sits_below(self):
+        self.ns.ImportText(encode(dict(SAMPLE, title="Kings' Rest: fast route")))
+        window = self.frame("PullwiseRouteFrame")
+        self.assertEqual(window.title.text, "Test Dungeon")
+        self.assertTrue(window.summary.text.startswith("Kings' Rest: fast route\n"))
 
     def test_bad_paste_shows_why_and_saves_nothing(self):
         ok, message = self.ns.ImportText("not a route")
@@ -338,12 +340,12 @@ class GameTests(unittest.TestCase):
         lua2, g2, ns2 = start(saved)
         g2.SlashCmdList.PULLWISE("")
         window = g2.PullwiseRouteFrame
-        self.assertEqual(window.title.text, "Dungeon 5000: Other")  # last shown
+        self.assertEqual(window.title.text, "Dungeon 5000")  # last shown
         self.assertTrue(window.prev.shown)
         ns2.StepShown(1)
-        self.assertEqual(window.title.text, "Test Dungeon: Test route")
+        self.assertEqual(window.title.text, "Test Dungeon")
         ns2.RemoveShown()
-        self.assertEqual(window.title.text, "Dungeon 5000: Other")
+        self.assertEqual(window.title.text, "Dungeon 5000")
         ns2.RemoveShown()
         self.assertIn("No routes yet", window.summary.text)
 
@@ -355,7 +357,7 @@ class GameTests(unittest.TestCase):
         self.assertIn("Your route for this key is ready", printed)
         self.assertTrue(self.fake.logging)
         self.slash("")
-        self.assertEqual(self.frame("PullwiseRouteFrame").title.text, "Test Dungeon: Test route")
+        self.assertEqual(self.frame("PullwiseRouteFrame").title.text, "Test Dungeon")
 
     def test_help(self):
         self.slash("help")
