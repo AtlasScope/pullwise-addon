@@ -81,6 +81,10 @@ class GameTests(unittest.TestCase):
         self.assertEqual(self.g.PullwiseDB.routes[9999].route.total, 460)
         self.assertIsNotNone(box)
 
+    def test_title_that_names_the_dungeon_isnt_repeated(self):
+        self.ns.ImportText(encode(dict(SAMPLE, title="Test Dungeon: fast route")))
+        self.assertEqual(self.frame("PullwiseRouteFrame").title.text, "Test Dungeon: fast route")
+
     def test_bad_paste_shows_why_and_saves_nothing(self):
         ok, message = self.ns.ImportText("not a route")
         self.assertFalse(ok)

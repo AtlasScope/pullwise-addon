@@ -228,7 +228,12 @@ function Window.ShowRoute(route, many)
   end
 
   local name = dungeonName(route.dungeon)
-  f.title:SetText(route.title and (name .. ": " .. route.title) or name)
+  local title = route.title
+  -- A title that already names the dungeon is shown as is, not as "Kings' Rest: Kings' Rest: ...".
+  if title and title:sub(1, #name) ~= name then
+    title = name .. ": " .. title
+  end
+  f.title:SetText(title or name)
   local by = route.author and (" · by " .. route.author) or ""
   f.summary:SetText(GREY .. "Enemy forces needed: " .. route.total .. by .. "|r")
 

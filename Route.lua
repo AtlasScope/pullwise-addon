@@ -3,7 +3,7 @@
 -- Format, version 1: "!PW1!" followed by standard base64 of raw-DEFLATE-compressed JSON.
 --   v        1
 --   dungeon  challenge map id (what C_ChallengeMode.GetActiveChallengeMapID returns in a key)
---   season   optional number
+--   season   optional, a name such as "Midnight Season 2" (or a number); shown as given
 --   total    enemy forces the dungeon needs
 --   stops    in order: a pull { forces = count, note = text } or a boss { boss = journal encounter id }
 --   title    optional text; author optional text
@@ -131,9 +131,6 @@ function Route.Validate(data)
   if not isId(data.dungeon) or not isId(data.total) then
     return fail("invalid")
   end
-  if data.season ~= nil and not isCount(data.season) then
-    return fail("invalid")
-  end
   local stops = data.stops
   if type(stops) ~= "table" then
     return fail("invalid")
@@ -161,7 +158,8 @@ function Route.Validate(data)
   local route = {
     v = 1,
     dungeon = data.dungeon,
-    season = data.season,
+    -- The add-on doesn't rely on the season, so an unexpected value is dropped, not rejected.
+    season = isCount(data.season) and data.season or Route.CleanText(data.season, Route.MAX_TITLE),
     total = data.total,
     title = Route.CleanText(data.title, Route.MAX_TITLE),
     author = Route.CleanText(data.author, Route.MAX_TITLE),
