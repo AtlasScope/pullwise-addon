@@ -21,6 +21,7 @@ Route.MAX_STOPS = 120
 Route.MAX_TITLE = 80 -- bytes
 Route.MAX_NOTE = 200 -- bytes
 Route.MAX_ID = 2147483647
+Route.MAX_DEPTH = 8 -- nesting of [ and { (a route needs 3)
 
 -- What the player sees when a string can't be used.
 Route.MESSAGES = {
@@ -71,12 +72,48 @@ function Route.CleanText(s, max)
   if type(s) ~= "string" then
     return nil
   end
+  -- Invisible characters and text direction marks could make a title read as something else.
+  s = s:gsub("\226\128[\139-\143\168-\174]", ""):gsub("\226\129[\160-\175]", ""):gsub("\239\187\191", "")
   s = s:gsub("%c", " "):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
   if s == "" then
     return nil
   end
   -- "|" starts colour, link and texture codes in game text; doubling it shows it as typed.
   return (truncateUtf8(s, max):gsub("|", "||"))
+end
+
+-- True when [ and { nest deeper than max outside quoted text. Checked before the game's JSON
+-- reader sees the text, so a hostile string can't nest thousands of levels deep.
+local function nestsTooDeep(json, max)
+  local depth, pos, quoted = 0, 1, false
+  while true do
+    local at, _, c
+    if quoted then
+      at, _, c = json:find('(["\\])', pos)
+    else
+      at, _, c = json:find('([%[{%]}"])', pos)
+    end
+    if not at then
+      return false
+    end
+    pos = at + 1
+    if quoted then
+      if c == "\\" then
+        pos = at + 2
+      else
+        quoted = false
+      end
+    elseif c == '"' then
+      quoted = true
+    elseif c == "[" or c == "{" then
+      depth = depth + 1
+      if depth > max then
+        return true
+      end
+    else
+      depth = depth - 1
+    end
+  end
 end
 
 local function fail(code)
@@ -95,12 +132,27 @@ function Route.Validate(data)
     return fail("invalid")
   end
   local stops = data.stops
-  if type(stops) ~= "table" or stops[1] == nil then
+  if type(stops) ~= "table" then
     return fail("invalid")
   end
-  local count = #stops
+  -- Stops must be exactly 1..n; a gap (a JSON null) would otherwise cut the route short.
+  local count = 0
+  for k in pairs(stops) do
+    if type(k) ~= "number" then
+      return fail("invalid")
+    end
+    count = count + 1
+  end
+  if count == 0 then
+    return fail("invalid")
+  end
   if count > Route.MAX_STOPS then
     return fail("too_many_stops")
+  end
+  for i = 1, count do
+    if stops[i] == nil then
+      return fail("invalid")
+    end
   end
 
   local route = {
@@ -174,6 +226,9 @@ function Route.Decode(text)
   ok, json = pcall(util.DecompressString, packed, deflate)
   if not ok or type(json) ~= "string" or json == "" or #json > Route.MAX_JSON then
     return fail("corrupt")
+  end
+  if nestsTooDeep(json, Route.MAX_DEPTH) then
+    return fail("invalid")
   end
   local data
   ok, data = pcall(util.DeserializeJSON, json)

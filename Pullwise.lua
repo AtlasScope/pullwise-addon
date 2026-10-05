@@ -29,6 +29,7 @@ local function show(id)
   db.shown = id
   local entry = id and db.routes[id]
   ns.Window.ShowRoute(entry and entry.route, #savedIds() > 1)
+  ns.Window.SetStatus("")
 end
 
 -- The route to open: the key being run, else the last one shown, else any saved route.
@@ -97,21 +98,21 @@ function ns.StepShown(delta)
   show(ids[(at - 1 + delta) % #ids + 1])
 end
 
--- Someone in the group shared a route: check it, then ask before saving.
-local offered -- the route waiting for an answer
+-- Someone in the group shared a route: check it, then ask before saving. The route rides on the
+-- popup itself, so a popup that the game reuses can never save a different route than it shows.
+local OFFER_GAP = 30 -- seconds before the same player's next route is looked at
+local lastOffer = {}
+
 StaticPopupDialogs["PULLWISE_ROUTE_RECEIVED"] = {
   text = "%s shared a Pullwise route for %s.\nKeep it?",
   button1 = "Keep",
   button2 = "No thanks",
-  OnAccept = function()
-    if offered then
-      save(offered.route, offered.text)
-      show(offered.route.dungeon)
-      offered = nil
+  OnAccept = function(_, data)
+    if data and db then
+      save(data.route, data.text)
+      show(data.route.dungeon)
+      ns.Window.SetStatus("Saved the route " .. data.sender .. " shared.")
     end
-  end,
-  OnCancel = function()
-    offered = nil
   end,
   timeout = 0,
   whileDead = true,
@@ -120,6 +121,17 @@ StaticPopupDialogs["PULLWISE_ROUTE_RECEIVED"] = {
 }
 
 function ns.OnRouteReceived(sender, text)
+  -- One question at a time, and at most one route per player every OFFER_GAP seconds, so a
+  -- group member can't keep the popup open or make the game decode route after route.
+  if StaticPopup_Visible("PULLWISE_ROUTE_RECEIVED") then
+    return
+  end
+  local now = GetTime()
+  if lastOffer[sender] and now - lastOffer[sender] < OFFER_GAP then
+    return
+  end
+  lastOffer[sender] = now
+
   local route, cleaned = ns.Route.Decode(text)
   if not route then
     return
@@ -128,12 +140,14 @@ function ns.OnRouteReceived(sender, text)
   if entry and entry.text == cleaned then
     return -- already have exactly this route
   end
-  offered = { route = route, text = cleaned }
   local what = dungeonName(route.dungeon)
   if route.title then
     what = what .. " (" .. route.title .. ")"
   end
-  StaticPopup_Show("PULLWISE_ROUTE_RECEIVED", sender, what)
+  if entry then
+    what = what .. ".\nKeeping it replaces your route for this dungeon"
+  end
+  StaticPopup_Show("PULLWISE_ROUTE_RECEIVED", sender, what, { route = route, text = cleaned, sender = sender })
 end
 
 local function toggle()

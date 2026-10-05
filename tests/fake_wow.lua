@@ -42,15 +42,39 @@ function print(...) fake.printed[#fake.printed + 1] = table.concat({ ... }, " ")
 function GetTime() return fake.now end
 
 SlashCmdList = {}
+-- Popups behave like the game's: showing one that is already up reuses it, first calling its
+-- OnCancel with the old data (unless noCancelOnReuse is set).
 StaticPopupDialogs = {}
-function StaticPopup_Show(which, a, b) fake.popups[#fake.popups + 1] = { which = which, a = a, b = b } end
+fake.open = {} -- which -> data of the popup on screen
+function StaticPopup_Show(which, a, b, data)
+  local info = StaticPopupDialogs[which]
+  if fake.open[which] ~= nil and info.OnCancel and not info.noCancelOnReuse then
+    info.OnCancel({}, fake.open[which], "override")
+  end
+  fake.open[which] = data or false
+  fake.popups[#fake.popups + 1] = { which = which, a = a, b = b, data = data }
+end
+function StaticPopup_Visible(which) return fake.open[which] ~= nil end
+function fake.answerPopup(which, accept)
+  local data = fake.open[which]
+  fake.open[which] = nil
+  local info = StaticPopupDialogs[which]
+  local fn = accept and info.OnAccept or info.OnCancel
+  if fn then fn({}, data or nil) end
+end
 
-C_Timer = { After = function(_, fn) fake.timers[#fake.timers + 1] = fn end }
+-- Timers run in time order, and running one moves the clock to when it was due.
+C_Timer = { After = function(delay, fn)
+  fake.timers[#fake.timers + 1] = { at = fake.now + delay, fn = fn }
+end }
 fake.timers = {}
 function fake.runTimers()
   local n = 0
   while #fake.timers > 0 do
-    table.remove(fake.timers, 1)()
+    table.sort(fake.timers, function(x, y) return x.at < y.at end)
+    local t = table.remove(fake.timers, 1)
+    fake.now = math.max(fake.now, t.at)
+    t.fn()
     n = n + 1
     assert(n < 1000, "timers never stop")
   end
@@ -63,8 +87,11 @@ C_ChatInfo = {
   InChatMessagingLockdown = function() return fake.lockdown end,
   SendAddonMessage = function(prefix, msg, channel)
     local result = table.remove(fake.sendResults, 1) or 0
+    if result == "error" then
+      error("send failed")
+    end
     if result == 0 then
-      fake.sent[#fake.sent + 1] = { prefix = prefix, msg = msg, channel = channel }
+      fake.sent[#fake.sent + 1] = { prefix = prefix, msg = msg, channel = channel, at = fake.now }
     end
     return result
   end,

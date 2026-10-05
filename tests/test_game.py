@@ -118,7 +118,7 @@ class GameTests(unittest.TestCase):
         self.assertIn("Pull 1", joined)
         self.assertIn("Test Boss", joined)
         self.assertIn("+44 · 9.6%", joined)
-        self.assertIn("29.6% total", joined)
+        self.assertIn("29.5% so far", joined)  # 29.56, rounded down
         self.assertIn("Corner pull", joined)
 
     def test_share_sends_pieces_to_party(self):
@@ -163,8 +163,103 @@ class GameTests(unittest.TestCase):
         self.assertIn("Import a route first", self.frame("PullwiseRouteFrame").status.text)
 
     def deliver(self, sender, sent):
+        """Hands the receiver each message at the time it was sent."""
         for m in sent:
+            self.fake.now = max(self.fake.now, m.at)
             self.fake.fire("CHAT_MSG_ADDON", m.prefix, m.msg, m.channel, sender)
+
+    def shared_by(self, route):
+        """What another player's add-on sends when they share `route`."""
+        _, sender_g, sender_ns = start()
+        sender_ns.ImportText(encode(route))
+        sender_ns.ShareShown()
+        sender_g.FAKE.runTimers()
+        status = sender_g.PullwiseRouteFrame.status.text
+        self.assertIn("Shared with your group", status)
+        return list(sender_g.FAKE.sent.values())
+
+    def test_a_long_route_arrives_even_though_it_takes_over_a_minute(self):
+        import random
+
+        rng = random.Random(7)
+        note = lambda: "".join(rng.choice("abcdefghijklmnopqrstuvwxyz ") for _ in range(180))
+        route = dict(SAMPLE, stops=[{"forces": 5, "note": note()} for _ in range(110)])
+        sent = self.shared_by(route)
+        self.assertGreater(sent[-1].at - sent[0].at, 60)
+        self.deliver("Friend", sent)
+        self.assertEqual(len(list(self.fake.popups.values())), 1)
+
+    def test_keep_saves_the_route_the_popup_shows_when_another_arrives(self):
+        first = self.shared_by(SAMPLE)
+        second = self.shared_by(dict(SAMPLE, title="Second"))
+        self.deliver("Friend", first)
+        self.deliver("Other", second)  # ignored while the question is on screen
+        self.assertEqual(len(list(self.fake.popups.values())), 1)
+        self.fake.answerPopup("PULLWISE_ROUTE_RECEIVED", True)
+        self.assertEqual(self.g.PullwiseDB.routes[9999].route.title, "Test route")
+
+    def test_a_player_cant_keep_reopening_the_question(self):
+        self.deliver("Friend", self.shared_by(SAMPLE))
+        self.fake.answerPopup("PULLWISE_ROUTE_RECEIVED", False)
+        self.deliver("Friend", self.shared_by(dict(SAMPLE, title="Again")))
+        self.assertEqual(len(list(self.fake.popups.values())), 1)
+        self.fake.now += 31
+        self.deliver("Friend", self.shared_by(dict(SAMPLE, title="Later")))
+        self.assertEqual(len(list(self.fake.popups.values())), 2)
+
+    def test_question_says_when_keeping_replaces_a_saved_route(self):
+        self.ns.ImportText(encode(SAMPLE))
+        self.deliver("Friend", self.shared_by(dict(SAMPLE, title="Theirs")))
+        popup = list(self.fake.popups.values())[0]
+        self.assertIn("replaces your route", popup.b)
+
+    def test_share_retries_when_the_channel_is_throttled(self):
+        self.ns.ImportText(encode(SAMPLE))
+        self.fake.sendResults = self.lua.table_from([8, 8])
+        self.ns.ShareShown()
+        self.fake.runTimers()
+        self.assertIn("Shared with your group", self.frame("PullwiseRouteFrame").status.text)
+
+    def test_share_says_when_you_left_the_group(self):
+        self.ns.ImportText(encode(SAMPLE))
+        self.fake.sendResults = self.lua.table_from([5])
+        self.ns.ShareShown()
+        self.fake.runTimers()
+        self.assertIn("no longer in a group", self.frame("PullwiseRouteFrame").status.text)
+
+    def test_an_error_while_sharing_doesnt_block_the_next_share(self):
+        self.ns.ImportText(encode(SAMPLE))
+        self.fake.sendResults = self.lua.table_from(["error"])
+        self.ns.ShareShown()
+        self.assertIn("couldn't be sent", self.frame("PullwiseRouteFrame").status.text)
+        self.ns.ShareShown()
+        self.fake.runTimers()
+        self.assertIn("Shared with your group", self.frame("PullwiseRouteFrame").status.text)
+
+    def test_running_total_rounds_down(self):
+        self.ns.ImportText(encode(dict(SAMPLE, stops=[{"forces": 459}])))
+        labels = "\n".join(w.text for w in self.fake.frames.values() if w.kind == "FontString" and w.text)
+        self.assertIn("99.7% so far", labels)
+        self.assertNotIn("100.0%", labels)
+
+    def test_logging_turned_on_before_a_reload_is_still_turned_off(self):
+        self.fake.activeMap = 9999
+        self.fake.fire("CHALLENGE_MODE_START")
+        self.assertTrue(self.fake.logging)
+        self.assertTrue(self.g.PullwiseDB.loggingByUs)
+        _, g2, _ = start("{ routes = {}, loggingByUs = true }")
+        g2.FAKE.logging = True  # the game keeps logging across a reload
+        g2.FAKE.activeMap = None  # left the key
+        g2.FAKE.fire("PLAYER_ENTERING_WORLD")
+        self.assertFalse(g2.FAKE.logging)
+
+    def test_logging_the_player_started_is_left_alone(self):
+        self.fake.logging = True
+        self.fake.activeMap = 9999
+        self.fake.fire("CHALLENGE_MODE_START")
+        self.fake.activeMap = None
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(self.fake.logging)
 
     def test_receiving_a_route_asks_then_saves(self):
         _, sender_g, sender_ns = start()
@@ -177,8 +272,9 @@ class GameTests(unittest.TestCase):
         self.assertEqual(popups[0].a, "Friend")
         self.assertEqual(popups[0].b, "Test Dungeon (Test route)")
         self.assertIsNone(next(iter(self.g.PullwiseDB.routes.keys()), None))
-        self.g.StaticPopupDialogs.PULLWISE_ROUTE_RECEIVED.OnAccept()
+        self.fake.answerPopup("PULLWISE_ROUTE_RECEIVED", True)
         self.assertEqual(self.g.PullwiseDB.routes[9999].route.total, 460)
+        self.assertIn("Saved the route Friend shared", self.frame("PullwiseRouteFrame").status.text)
 
     def test_ignores_routes_from_outside_the_group_and_from_myself(self):
         _, sender_g, sender_ns = start()

@@ -12,7 +12,7 @@ ns.Share = Share
 Share.PREFIX = "PullwiseRoute"
 Share.PIECE = 200 -- characters of route text per message
 Share.MAX_PIECES = 110 -- enough for the longest string Route accepts
-Share.TIMEOUT = 60 -- seconds to wait for the rest of a route
+Share.TIMEOUT = 15 -- seconds to wait for the next piece (a long route takes minutes to arrive)
 Share.MAX_PENDING = 10 -- unfinished routes held at once, across all senders
 
 -- Splits a route string into messages.
@@ -30,7 +30,7 @@ end
 -- `pending` is the receiver's own table; `now` is the time in seconds.
 function Share.Accept(pending, sender, message, now)
   for key, entry in pairs(pending) do
-    if now - entry.started > Share.TIMEOUT then
+    if now - entry.last > Share.TIMEOUT then
       pending[key] = nil
     end
   end
@@ -63,13 +63,14 @@ function Share.Accept(pending, sender, message, now)
     if held >= Share.MAX_PENDING then
       return nil
     end
-    entry = { sender = sender, pieces = pieces, parts = {}, got = 0, started = now }
+    entry = { sender = sender, pieces = pieces, parts = {}, got = 0, started = now, last = now }
     pending[key] = entry
   elseif entry.pieces ~= pieces then
     pending[key] = nil
     return nil
   end
 
+  entry.last = now
   if entry.parts[piece] == nil then
     entry.parts[piece] = part
     entry.got = entry.got + 1
@@ -83,9 +84,13 @@ end
 
 -- Game side below: needs the WoW client.
 
+-- Enum.SendAddonMessageResult values.
 local SEND_OK = 0
 local SEND_THROTTLED = 3
+local SEND_NOT_IN_GROUP = 5
+local SEND_CHANNEL_THROTTLED = 8
 local SEND_LOCKDOWN = 11
+local LOCKDOWN_MESSAGE = "The game blocks sharing inside dungeons. Share before you go in."
 
 local function inLockdown()
   return C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()
@@ -110,7 +115,7 @@ function Share.Send(text, done)
     return done(false, "Join a group first, then share.")
   end
   if inLockdown() then
-    return done(false, "The game blocks sharing inside dungeons. Share before you go in.")
+    return done(false, LOCKDOWN_MESSAGE)
   end
 
   local id = string.format("%04x", math.random(0, 0xFFFF))
@@ -118,10 +123,15 @@ function Share.Send(text, done)
   local i, retries = 1, 0
   sending = true
 
-  local function step()
+  local function finish(ok, detail)
+    sending = false
+    done(ok, detail)
+  end
+
+  local step -- runs `send` safely; the timers call this
+  local function send()
     if i > #messages then
-      sending = false
-      return done(true, #messages)
+      return finish(true, #messages)
     end
     -- The result code is the last value returned (older clients put a boolean first).
     local returned = { C_ChatInfo.SendAddonMessage(Share.PREFIX, messages[i], channel) }
@@ -133,15 +143,23 @@ function Share.Send(text, done)
       i, retries = i + 1, 0
       -- The game allows a short burst per prefix, then about one message a second.
       C_Timer.After(i <= 8 and 0.2 or 1.1, step)
-    elseif result == SEND_THROTTLED and retries < 5 then
+    elseif (result == SEND_THROTTLED or result == SEND_CHANNEL_THROTTLED) and retries < 5 then
       retries = retries + 1
       C_Timer.After(1.5, step)
+    elseif result == SEND_LOCKDOWN then
+      finish(false, LOCKDOWN_MESSAGE)
+    elseif result == SEND_NOT_IN_GROUP then
+      finish(false, "You're no longer in a group, so the route wasn't sent.")
     else
-      sending = false
-      if result == SEND_LOCKDOWN then
-        return done(false, "The game blocks sharing inside dungeons. Share before you go in.")
-      end
-      return done(false, "The route couldn't be sent. Try again outside the dungeon.")
+      finish(false, "The route couldn't be sent. Try again in a moment.")
+    end
+  end
+
+  -- An error part way through must not leave sharing stuck until a reload.
+  step = function()
+    local ok = pcall(send)
+    if not ok and sending then
+      finish(false, "The route couldn't be sent. Try again in a moment.")
     end
   end
   step()

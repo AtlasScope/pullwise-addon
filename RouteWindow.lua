@@ -36,10 +36,16 @@ local function makeFrame(name, height)
   f.title:SetPoint("LEFT", 8, 0)
   f.title:SetPoint("RIGHT", -28, 0)
   f.title:SetWordWrap(false)
+  f:SetToplevel(true) -- clicking it brings it in front of the other Pullwise window
   f:Hide()
   -- Escape closes it, like the game's own windows.
   table.insert(UISpecialFrames, name)
   return f
+end
+
+-- Rounds down to one decimal, so a running total a little short never reads as 100%.
+local function tenths(x)
+  return math.floor(x * 10 + 1e-9) / 10
 end
 
 local function makeButton(parent, text, width)
@@ -61,7 +67,7 @@ local function buildImport()
   hint:SetPoint("TOPLEFT", 14, -34)
   hint:SetPoint("RIGHT", -14, 0)
   hint:SetJustifyH("LEFT")
-  hint:SetText("Copy a route on pullwise.gg, then paste it here with Ctrl+V.")
+  hint:SetText("Copy a route on pullwise.gg, then paste it here (Ctrl+V, or Cmd+V on a Mac).")
 
   local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -8)
@@ -112,6 +118,7 @@ end
 function Window.ShowImport()
   importFrame = importFrame or buildImport()
   importFrame:Show()
+  importFrame:Raise()
 end
 
 -- Route window -------------------------------------------------------------------------------
@@ -230,7 +237,7 @@ function Window.ShowRoute(route, many)
       row.note:SetText("")
     else
       row.label:SetText("Pull " .. r.pull)
-      row.numbers:SetText(string.format("+%d · %.1f%%  " .. GREY .. "%.1f%% total|r", r.forces, r.percent, r.running))
+      row.numbers:SetText(string.format("+%d · %.1f%%  " .. GREY .. "%.1f%% so far|r", r.forces, r.percent, tenths(r.running)))
       row.note:SetText(r.note and (GREY .. r.note .. "|r") or "")
     end
     local height = row.label:GetStringHeight()

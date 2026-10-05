@@ -168,6 +168,21 @@ class RouteTests(unittest.TestCase):
         self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, {"boss": 0}])), "invalid")
         self.assertFails(encode([1, 2, 3]), "invalid")
 
+    def test_deep_nesting_is_rejected_before_parsing(self):
+        deep = [1]
+        for _ in range(50):
+            deep = [deep]
+        self.assertFails(encode(dict(SAMPLE, extra=deep)), "invalid")
+        route, _ = self.decode(encode(dict(SAMPLE, title="[[[[{{{{[[[[{{{{ \\\" [[[[")))
+        self.assertIsNotNone(route)  # brackets inside text don't count
+
+    def test_a_gap_in_the_stops_is_rejected(self):
+        self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 3}, None, {"forces": 4}])), "invalid")
+
+    def test_invisible_and_direction_characters_are_removed(self):
+        route, _ = self.decode(encode(dict(SAMPLE, title="Safe\u202eetirW\u200b\u2066x\ufeff")))
+        self.assertEqual(text(route.title), "SafeetirWx")
+
     def test_too_many_stops(self):
         self.assertFails(encode(dict(SAMPLE, stops=[{"forces": 1}] * 121)), "too_many_stops")
         route, _ = self.decode(encode(dict(SAMPLE, stops=[{"forces": 1}] * 120)))
@@ -256,6 +271,13 @@ class ShareTests(unittest.TestCase):
         pending = self.lua.table()
         self.Share.Accept(pending, "One", parts[0], 1)
         self.assertIsNone(self.Share.Accept(pending, "One", parts[1], 1 + 61))
+
+    def test_a_slow_route_keeps_going_while_pieces_arrive(self):
+        parts = self.messages("A" * 600)  # three pieces
+        pending = self.lua.table()
+        self.assertIsNone(self.Share.Accept(pending, "One", parts[0], 1))
+        self.assertIsNone(self.Share.Accept(pending, "One", parts[1], 14))
+        self.assertEqual(self.Share.Accept(pending, "One", parts[2], 27), "A" * 600)
 
     def test_rejects_malformed_messages(self):
         pending = self.lua.table()

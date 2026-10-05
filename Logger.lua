@@ -2,9 +2,18 @@
 -- The log file the game writes is read by tools outside the game, such as the Pullwise Helper.
 
 local frame = CreateFrame("Frame")
--- True only while this add-on is the one that turned logging on, so we never turn off
--- logging the player started themselves.
-local startedByUs = false
+
+-- True only while this add-on is the one that turned logging on, so we never turn off logging
+-- the player started themselves. Saved, so a reload or disconnect mid-key doesn't forget it.
+local function startedByUs()
+  return PullwiseDB and PullwiseDB.loggingByUs == true
+end
+
+local function setStartedByUs(on)
+  if PullwiseDB then
+    PullwiseDB.loggingByUs = on or nil
+  end
+end
 
 local function say(text)
   print("|cffd4af37Combat log:|r " .. text)
@@ -13,14 +22,14 @@ end
 local function startLogging()
   if LoggingCombat() then return end
   LoggingCombat(true)
-  startedByUs = true
+  setStartedByUs(true)
   say("on for this key.")
 end
 
 local function stopLogging()
-  if not startedByUs then return end
+  if not startedByUs() then return end
   LoggingCombat(false)
-  startedByUs = false
+  setStartedByUs(false)
   say("off.")
 end
 
