@@ -134,7 +134,10 @@ function Share.Send(text, done)
       return finish(true, #messages)
     end
     -- The result code is the last value returned (older clients put a boolean first).
-    local returned = { C_ChatInfo.SendAddonMessage(Share.PREFIX, messages[i], channel) }
+    -- Routes carry players' own text, so they go by the logged variant Blizzard asks add-ons to
+    -- use for user-written content (it arrives as CHAT_MSG_ADDON_LOGGED).
+    local sendFn = C_ChatInfo.SendAddonMessageLogged or C_ChatInfo.SendAddonMessage
+    local returned = { sendFn(Share.PREFIX, messages[i], channel) }
     local result = returned[#returned]
     if result == true then
       result = SEND_OK

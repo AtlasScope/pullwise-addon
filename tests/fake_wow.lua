@@ -34,7 +34,13 @@ function fake.widget(kind, name)
   return w
 end
 
-function CreateFrame(kind, name) return fake.widget(kind, name) end
+function CreateFrame(kind, name, _, template)
+  local w = fake.widget(kind, name)
+  if template == "BasicFrameTemplateWithInset" then
+    w.TitleText = fake.widget("FontString")
+  end
+  return w
+end
 UIParent = fake.widget("Frame")
 UISpecialFrames = {}
 ChatFontNormal = {}
@@ -85,7 +91,7 @@ fake.sendResults = {}
 C_ChatInfo = {
   RegisterAddonMessagePrefix = function(p) fake.prefix = p; return true end,
   InChatMessagingLockdown = function() return fake.lockdown end,
-  SendAddonMessage = function(prefix, msg, channel)
+  SendAddonMessageLogged = function(prefix, msg, channel)
     local result = table.remove(fake.sendResults, 1) or 0
     if result == "error" then
       error("send failed")
@@ -113,8 +119,14 @@ function UnitInRaid() return nil end
 function UnitName() return "Me" end
 function Ambiguate(name) return (name:gsub("%-.*", "")) end
 
+-- fake.logThrottled makes calls behave like the game past its limit: nil, and nothing changes.
 fake.logging = false
+fake.logThrottled = 0
 function LoggingCombat(on)
+  if fake.logThrottled > 0 then
+    fake.logThrottled = fake.logThrottled - 1
+    return nil
+  end
   if on ~= nil then fake.logging = on end
   return fake.logging
 end

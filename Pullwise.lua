@@ -84,6 +84,27 @@ function ns.RemoveShown()
   show(savedIds()[1])
 end
 
+StaticPopupDialogs["PULLWISE_REMOVE_ROUTE"] = {
+  text = "Remove your route for %s?",
+  button1 = "Remove",
+  button2 = "Keep",
+  OnAccept = function(_, data)
+    if db and data and db.shown == data then
+      ns.RemoveShown()
+    end
+  end,
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  preferredIndex = 3,
+}
+
+function ns.AskRemoveShown()
+  if db.shown and db.routes[db.shown] then
+    StaticPopup_Show("PULLWISE_REMOVE_ROUTE", dungeonName(db.shown), nil, db.shown)
+  end
+end
+
 function ns.StepShown(delta)
   local ids = savedIds()
   if #ids == 0 then
@@ -176,6 +197,7 @@ end
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("CHAT_MSG_ADDON")
+events:RegisterEvent("CHAT_MSG_ADDON_LOGGED")
 events:RegisterEvent("CHALLENGE_MODE_START")
 events:SetScript("OnEvent", function(_, event, ...)
   if event == "ADDON_LOADED" then
@@ -186,12 +208,12 @@ events:SetScript("OnEvent", function(_, event, ...)
     PullwiseDB.routes = PullwiseDB.routes or {}
     db = PullwiseDB
     ns.Share.Register()
-  elseif event == "CHAT_MSG_ADDON" then
+  elseif event == "CHAT_MSG_ADDON" or event == "CHAT_MSG_ADDON_LOGGED" then
     if db then
       ns.Share.OnMessage(...)
     end
   elseif event == "CHALLENGE_MODE_START" then
-    local active = C_ChallengeMode.GetActiveChallengeMapID()
+    local active = ... or C_ChallengeMode.GetActiveChallengeMapID()
     if db and active and db.routes[active] then
       say("Your route for this key is ready. Type /pullwise to open it.")
     end

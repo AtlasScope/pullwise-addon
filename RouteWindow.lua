@@ -31,10 +31,13 @@ local function makeFrame(name, height)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  f.title:SetPoint("TOP", 0, -5)
-  f.title:SetPoint("LEFT", 8, 0)
-  f.title:SetPoint("RIGHT", -28, 0)
+  -- The template brings its own title text; fall back to ours if it ever doesn't.
+  f.title = f.TitleText
+  if not f.title then
+    f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    f.title:SetPoint("TOPLEFT", 8, -5)
+    f.title:SetPoint("TOPRIGHT", -28, -5)
+  end
   f.title:SetWordWrap(false)
   f:SetToplevel(true) -- clicking it brings it in front of the other Pullwise window
   f:Hide()
@@ -65,7 +68,7 @@ local function buildImport()
 
   local hint = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   hint:SetPoint("TOPLEFT", 14, -34)
-  hint:SetPoint("RIGHT", -14, 0)
+  hint:SetPoint("TOPRIGHT", -14, -34)
   hint:SetJustifyH("LEFT")
   hint:SetText("Copy a route on pullwise.gg, then paste it here (Ctrl+V, or Cmd+V on a Mac).")
 
@@ -80,14 +83,20 @@ local function buildImport()
   box:SetWidth(WIDTH - 60)
   box:SetMaxLetters(0)
   box:SetScript("OnEscapePressed", function() f:Hide() end)
+  -- Keep the cursor in view as the text grows, like the game's own scrolling edit boxes.
+  if ScrollingEdit_OnCursorChanged and ScrollingEdit_OnUpdate then
+    box:SetScript("OnCursorChanged", ScrollingEdit_OnCursorChanged)
+    box:SetScript("OnUpdate", function(self, elapsed) ScrollingEdit_OnUpdate(self, elapsed, scroll) end)
+  end
   scroll:SetScrollChild(box)
   -- Clicking anywhere in the box area puts the cursor in it.
+  scroll:EnableMouse(true)
   scroll:SetScript("OnMouseDown", function() box:SetFocus() end)
   f.box = box
 
   local status = f:CreateFontString(nil, "OVERLAY", "GameFontRed")
   status:SetPoint("BOTTOMLEFT", 14, 38)
-  status:SetPoint("RIGHT", -14, 0)
+  status:SetPoint("BOTTOMRIGHT", -14, 38)
   status:SetJustifyH("LEFT")
   f.status = status
 
@@ -150,7 +159,7 @@ local function buildRoute()
 
   local summary = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   summary:SetPoint("TOPLEFT", 14, -32)
-  summary:SetPoint("RIGHT", -14, 0)
+  summary:SetPoint("TOPRIGHT", -70, -32) -- leaves room for the arrows
   summary:SetJustifyH("LEFT")
   f.summary = summary
 
@@ -164,7 +173,7 @@ local function buildRoute()
 
   local status = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   status:SetPoint("BOTTOMLEFT", 14, 38)
-  status:SetPoint("RIGHT", -14, 0)
+  status:SetPoint("BOTTOMRIGHT", -14, 38)
   status:SetJustifyH("LEFT")
   f.status = status
 
@@ -178,7 +187,7 @@ local function buildRoute()
 
   local remove = makeButton(f, "Remove", 70)
   remove:SetPoint("LEFT", import, "RIGHT", 4, 0)
-  remove:SetScript("OnClick", function() ns.RemoveShown() end)
+  remove:SetScript("OnClick", function() ns.AskRemoveShown() end)
   f.remove = remove
 
   local prev = makeButton(f, "<", 24)
@@ -188,7 +197,6 @@ local function buildRoute()
   nextB:SetPoint("LEFT", prev, "RIGHT", 2, 0)
   nextB:SetScript("OnClick", function() ns.StepShown(1) end)
   f.prev, f.next = prev, nextB
-  summary:SetPoint("RIGHT", prev, "LEFT", -6, 0)
   return f
 end
 

@@ -15,27 +15,41 @@ local function setStartedByUs(on)
   end
 end
 
+local function keyIsRunning()
+  return C_ChallengeMode and C_ChallengeMode.IsChallengeModeActive
+    and C_ChallengeMode.IsChallengeModeActive()
+end
+
 local function say(text)
   print("|cffd4af37Combat log:|r " .. text)
 end
 
-local function startLogging()
+-- The game allows only a few LoggingCombat calls every 10 seconds, across all add-ons; past that
+-- it returns nil and changes nothing. So check the answer and try again a little later.
+local function startLogging(tries)
+  tries = tries or 0
   if LoggingCombat() then return end
-  LoggingCombat(true)
-  setStartedByUs(true)
-  say("on for this key.")
+  if LoggingCombat(true) == true then
+    setStartedByUs(true)
+    say("on for this key.")
+  elseif tries < 3 then
+    C_Timer.After(10, function()
+      if keyIsRunning() then startLogging(tries + 1) end
+    end)
+  else
+    say("the game didn't turn logging on. Type /combatlog to turn it on yourself.")
+  end
 end
 
-local function stopLogging()
+local function stopLogging(tries)
+  tries = tries or 0
   if not startedByUs() then return end
-  LoggingCombat(false)
-  setStartedByUs(false)
-  say("off.")
-end
-
-local function keyIsRunning()
-  return C_ChallengeMode and C_ChallengeMode.IsChallengeModeActive
-    and C_ChallengeMode.IsChallengeModeActive()
+  if LoggingCombat(false) == false then
+    setStartedByUs(false)
+    say("off.")
+  elseif tries < 3 then
+    C_Timer.After(10, function() stopLogging(tries + 1) end)
+  end
 end
 
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -47,7 +61,7 @@ frame:SetScript("OnEvent", function(_, event)
     startLogging()
   elseif event == "CHALLENGE_MODE_COMPLETED" then
     -- A short delay lets the game write the key's end line before logging stops.
-    C_Timer.After(5, stopLogging)
+    C_Timer.After(5, function() stopLogging() end)
   elseif event == "PLAYER_ENTERING_WORLD" then
     -- Reconnecting or reloading mid-key: keep recording. Leaving the dungeon early: stop.
     if keyIsRunning() then

@@ -166,7 +166,7 @@ class GameTests(unittest.TestCase):
         """Hands the receiver each message at the time it was sent."""
         for m in sent:
             self.fake.now = max(self.fake.now, m.at)
-            self.fake.fire("CHAT_MSG_ADDON", m.prefix, m.msg, m.channel, sender)
+            self.fake.fire("CHAT_MSG_ADDON_LOGGED", m.prefix, m.msg, m.channel, sender)
 
     def shared_by(self, route):
         """What another player's add-on sends when they share `route`."""
@@ -252,6 +252,32 @@ class GameTests(unittest.TestCase):
         g2.FAKE.activeMap = None  # left the key
         g2.FAKE.fire("PLAYER_ENTERING_WORLD")
         self.assertFalse(g2.FAKE.logging)
+
+    def test_logging_is_retried_when_the_game_refuses(self):
+        self.fake.activeMap = 9999
+        self.fake.logThrottled = 2  # the check and the first try are refused
+        self.fake.fire("CHALLENGE_MODE_START")
+        self.assertFalse(self.fake.logging)
+        self.assertNotIn("on for this key", "\n".join(self.fake.printed.values()))
+        self.fake.runTimers()
+        self.assertTrue(self.fake.logging)
+        self.assertTrue(self.g.PullwiseDB.loggingByUs)
+        self.assertIn("on for this key", "\n".join(self.fake.printed.values()))
+
+    def test_key_start_uses_the_map_the_event_names(self):
+        self.ns.ImportText(encode(SAMPLE))
+        self.fake.fire("CHALLENGE_MODE_START", 9999)  # the game hasn't set the active map yet
+        self.assertIn("Your route for this key is ready", "\n".join(self.fake.printed.values()))
+
+    def test_remove_asks_first(self):
+        self.ns.ImportText(encode(SAMPLE))
+        remove = self.frame("PullwiseRouteFrame").remove
+        remove.Click(remove)
+        self.assertIsNotNone(self.g.PullwiseDB.routes[9999])
+        popup = list(self.fake.popups.values())[-1]
+        self.assertEqual(popup.a, "Test Dungeon")
+        self.fake.answerPopup("PULLWISE_REMOVE_ROUTE", True)
+        self.assertIsNone(self.g.PullwiseDB.routes[9999])
 
     def test_logging_the_player_started_is_left_alone(self):
         self.fake.logging = True
