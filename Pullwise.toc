@@ -1,8 +1,13 @@
 ## Interface: 120100
 ## Title: Pullwise
-## Notes: Turns combat logging on for Mythic+ keys and off afterwards.
+## Notes: Turns combat logging on for Mythic+ keys, and shows and shares routes from pullwise.gg.
 ## Author: Pullwise
 ## Version: @project-version@
+## SavedVariables: PullwiseDB
 ## X-License: MIT
 
+Route.lua
+Share.lua
+RouteWindow.lua
 Pullwise.lua
+Logger.lua

@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "dungeon": 9999,
+  "season": 1,
+  "total": 460,
+  "title": "Test route",
+  "author": "Pullwise",
+  "source": "pullwise.gg",
+  "stops": [
+    { "forces": 44, "note": "Pull the two casters to the corner" },
+    { "forces": 61 },
+    { "boss": 99991 },
+    { "forces": 120, "note": "Big pull: save cooldowns" },
+    { "forces": 80 },
+    { "boss": 99992 },
+    { "forces": 160, "note": "Finish forces here" },
+    { "boss": 99993 }
+  ]
+}
