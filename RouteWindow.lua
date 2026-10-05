@@ -31,13 +31,13 @@ local function makeFrame(name, height)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  -- The template brings its own title text; fall back to ours if it ever doesn't.
-  f.title = f.TitleText
-  if not f.title then
-    f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    f.title:SetPoint("TOPLEFT", 8, -5)
-    f.title:SetPoint("TOPRIGHT", -28, -5)
-  end
+  -- The template brings its own title text, anchored at one point with no width; give it both
+  -- edges so a long route title stops short of the close button instead of running off.
+  f.title = f.TitleText or f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  f.title:ClearAllPoints()
+  f.title:SetPoint("TOPLEFT", 8, -4)
+  f.title:SetPoint("TOPRIGHT", -28, -4)
+  f.title:SetJustifyH("CENTER")
   f.title:SetWordWrap(false)
   f:SetToplevel(true) -- clicking it brings it in front of the other Pullwise window
   f:Hide()

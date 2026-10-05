@@ -213,7 +213,12 @@ events:SetScript("OnEvent", function(_, event, ...)
       ns.Share.OnMessage(...)
     end
   elseif event == "CHALLENGE_MODE_START" then
-    local active = ... or C_ChallengeMode.GetActiveChallengeMapID()
+    -- The event's own map id isn't documented as the challenge id routes are saved under, so
+    -- it is only a fallback, used when the game hasn't set the active key yet.
+    local active = C_ChallengeMode.GetActiveChallengeMapID()
+    if not active and db and db.routes[...] then
+      active = ...
+    end
     if db and active and db.routes[active] then
       say("Your route for this key is ready. Type /pullwise to open it.")
     end

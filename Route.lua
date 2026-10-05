@@ -112,6 +112,9 @@ local function nestsTooDeep(json, max)
       end
     else
       depth = depth - 1
+      if depth < 0 then
+        return true -- a closing bracket with nothing open isn't JSON a route could be
+      end
     end
   end
 end
