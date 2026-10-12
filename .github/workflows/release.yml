@@ -22,3 +22,11 @@ jobs:
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      # A copy under a fixed name, so pullwise.gg can always link
+      # releases/latest/download/Pullwise.zip without changing per version.
+      - name: Attach Pullwise.zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp .release/Pullwise-*.zip Pullwise.zip
+          gh release upload "$GITHUB_REF_NAME" Pullwise.zip --clobber
