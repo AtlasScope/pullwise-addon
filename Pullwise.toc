@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Pullwise
 ## Notes: Turns combat logging on for Mythic+ keys, and shows and shares routes from pullwise.gg.
 ## Author: Pullwise
