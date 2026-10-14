@@ -28,7 +28,7 @@ and `tests/sample-route.json` is a test route.
 
 ## Installing
 
-From CurseForge, Wago or WoWInterface once listed, or download the zip from Releases and unzip it
+From CurseForge, Wago or WoWInterface once listed, or download `Pullwise.zip` from the latest release and unzip it
 into `World of Warcraft/_retail_/Interface/AddOns/`.
 
 ## Tests
