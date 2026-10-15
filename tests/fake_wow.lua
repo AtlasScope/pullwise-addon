@@ -105,11 +105,15 @@ C_ChatInfo = {
 
 fake.activeMap = nil
 fake.inGroup = true
+fake.seasonMaps = { 9999 } -- this season's keystone dungeons, as the server lists them
 C_ChallengeMode = {
+  GetMapTable = function() return fake.seasonMaps end,
   GetMapUIInfo = function(id) if id == 9999 then return "Test Dungeon" end end,
   GetActiveChallengeMapID = function() return fake.activeMap end,
   IsChallengeModeActive = function() return fake.activeMap ~= nil end,
 }
+fake.mapsRequested = 0
+C_MythicPlus = { RequestMapInfo = function() fake.mapsRequested = fake.mapsRequested + 1 end }
 function EJ_GetEncounterInfo(id) if id == 99991 then return "Test Boss" end end
 LE_PARTY_CATEGORY_HOME = 1
 function IsInGroup() return fake.inGroup end
@@ -119,14 +123,29 @@ function UnitInRaid() return nil end
 function UnitName() return "Me" end
 function Ambiguate(name) return (name:gsub("%-.*", "")) end
 
+-- Where the player is: outside any instance until a test says otherwise. `name` is the
+-- instance's name as the game gives it; `id` its instance id.
+fake.instance = { name = "Somewhere", type = "none", difficulty = 0, id = 0 }
+function GetInstanceInfo()
+  local i = fake.instance
+  return i.name, i.type, i.difficulty, "", 5, 0, false, i.id or 0
+end
+fake.cvars = { advancedCombatLogging = "0" }
+C_CVar = {
+  GetCVar = function(name) return fake.cvars[name] end,
+  SetCVar = function(name, value) fake.cvars[name] = tostring(value); return true end,
+}
+
 -- fake.logThrottled makes calls behave like the game past its limit: nil, and nothing changes.
 fake.logging = false
 fake.logThrottled = 0
+-- fake.headerAdvanced is what the game wrote in the log's first line when logging came on.
 function LoggingCombat(on)
   if fake.logThrottled > 0 then
     fake.logThrottled = fake.logThrottled - 1
     return nil
   end
+  if on and not fake.logging then fake.headerAdvanced = fake.cvars.advancedCombatLogging end
   if on ~= nil then fake.logging = on end
   return fake.logging
 end
