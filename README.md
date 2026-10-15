@@ -2,9 +2,11 @@
 
 A free World of Warcraft add-on that goes with [pullwise.gg](https://pullwise.gg).
 
-- **Combat logging for keys.** Turns combat logging on when a Mythic+ key starts and off when it
-  ends (only if it was the one that turned it on). Tools outside the game, such as the Pullwise
-  Helper, read the log file afterwards.
+- **Combat logging for keys.** Turns combat logging on when you enter a Mythic or Mythic+
+  dungeon, so the key's start is in the log, and off when the key ends or you leave (only if it
+  was the one that turned it on). The first time, it also turns on the game's Advanced Combat
+  Logging setting, which the review needs for health and positions. Tools outside the game, such
+  as the Pullwise Helper, read the log file afterwards.
 - **Routes.** Copy a route on pullwise.gg, type `/pullwise import` and paste it. `/pullwise` opens
   it as a pull list: each pull's enemy forces, the running total, your notes and where the bosses
   fall. **Share with group** sends it to party members who have Pullwise; they're asked before it's

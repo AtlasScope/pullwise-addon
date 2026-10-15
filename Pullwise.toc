@@ -1,6 +1,6 @@
 ## Interface: 120105
 ## Title: Pullwise
-## Notes: Turns combat logging on for Mythic+ keys, and shows and shares routes from pullwise.gg.
+## Notes: Logs your Mythic+ keys from the moment you enter, and shows and shares routes from pullwise.gg.
 ## Author: Pullwise
 ## Version: @project-version@
 ## SavedVariables: PullwiseDB

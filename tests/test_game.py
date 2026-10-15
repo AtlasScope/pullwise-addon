@@ -285,6 +285,39 @@ class GameTests(unittest.TestCase):
         self.fake.answerPopup("PULLWISE_REMOVE_ROUTE", True)
         self.assertIsNone(self.g.PullwiseDB.routes[9999])
 
+    def test_logging_starts_on_entering_a_mythic_dungeon_before_the_key(self):
+        self.fake.instance = self.lua.table(type="party", difficulty=23)  # Mythic, no key yet
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(self.fake.logging)
+        self.assertTrue(self.g.PullwiseDB.loggingByUs)
+        printed = "\n".join(self.fake.printed.values())
+        self.assertIn("on for this dungeon", printed)
+        self.assertEqual(self.fake.cvars.advancedCombatLogging, "1")
+        self.assertIn("Advanced Combat Logging turned on", printed)
+        # The key starts: already logging, so the game's call budget isn't spent again.
+        self.fake.activeMap = 9999
+        self.fake.instance = self.lua.table(type="party", difficulty=8)
+        self.fake.fire("CHALLENGE_MODE_START", 9999)
+        self.assertTrue(self.fake.logging)
+        # Leaving the dungeon stops it.
+        self.fake.activeMap = None
+        self.fake.instance = self.lua.table(type="none", difficulty=0)
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertFalse(self.fake.logging)
+        self.assertIsNone(self.g.PullwiseDB.loggingByUs)
+
+    def test_advanced_logging_already_on_is_not_mentioned(self):
+        self.fake.cvars.advancedCombatLogging = "1"
+        self.fake.instance = self.lua.table(type="party", difficulty=8)
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(self.fake.logging)
+        self.assertNotIn("Advanced Combat Logging", "\n".join(self.fake.printed.values()))
+
+    def test_a_normal_dungeon_is_not_logged(self):
+        self.fake.instance = self.lua.table(type="party", difficulty=2)  # Heroic
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertFalse(self.fake.logging)
+
     def test_logging_the_player_started_is_left_alone(self):
         self.fake.logging = True
         self.fake.activeMap = 9999

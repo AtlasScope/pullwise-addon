@@ -119,6 +119,15 @@ function UnitInRaid() return nil end
 function UnitName() return "Me" end
 function Ambiguate(name) return (name:gsub("%-.*", "")) end
 
+-- Where the player is: outside any instance until a test says otherwise.
+fake.instance = { type = "none", difficulty = 0 }
+function GetInstanceInfo() return "Somewhere", fake.instance.type, fake.instance.difficulty end
+fake.cvars = { advancedCombatLogging = "0" }
+C_CVar = {
+  GetCVar = function(name) return fake.cvars[name] end,
+  SetCVar = function(name, value) fake.cvars[name] = tostring(value); return true end,
+}
+
 -- fake.logThrottled makes calls behave like the game past its limit: nil, and nothing changes.
 fake.logging = false
 fake.logThrottled = 0
