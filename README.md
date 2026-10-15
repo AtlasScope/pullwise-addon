@@ -4,7 +4,8 @@ A free World of Warcraft add-on that goes with [pullwise.gg](https://pullwise.gg
 
 - **Combat logging for keys.** Turns combat logging on when you enter one of the season's
   Mythic+ dungeons on Mythic, so the key's start is in the log, and off when the key ends or you
-  leave (only if it was the one that turned it on). The first time, it also turns on the game's
+  leave (only if it was the one that turned it on). A run with no key is left alone again at its
+  first boss. The first time, it also turns on the game's
   Advanced Combat Logging setting, which the review needs for health and positions; after that
   the setting is yours. Tools outside the game, such as the Pullwise Helper, read the log file
   afterwards.

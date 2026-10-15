@@ -105,12 +105,15 @@ C_ChatInfo = {
 
 fake.activeMap = nil
 fake.inGroup = true
+fake.seasonMaps = { 9999 } -- this season's keystone dungeons, as the server lists them
 C_ChallengeMode = {
-  GetMapTable = function() return { 9999 } end, -- this season's keystone dungeons
+  GetMapTable = function() return fake.seasonMaps end,
   GetMapUIInfo = function(id) if id == 9999 then return "Test Dungeon" end end,
   GetActiveChallengeMapID = function() return fake.activeMap end,
   IsChallengeModeActive = function() return fake.activeMap ~= nil end,
 }
+fake.mapsRequested = 0
+C_MythicPlus = { RequestMapInfo = function() fake.mapsRequested = fake.mapsRequested + 1 end }
 function EJ_GetEncounterInfo(id) if id == 99991 then return "Test Boss" end end
 LE_PARTY_CATEGORY_HOME = 1
 function IsInGroup() return fake.inGroup end
