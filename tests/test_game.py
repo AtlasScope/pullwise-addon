@@ -285,38 +285,102 @@ class GameTests(unittest.TestCase):
         self.fake.answerPopup("PULLWISE_REMOVE_ROUTE", True)
         self.assertIsNone(self.g.PullwiseDB.routes[9999])
 
-    def test_logging_starts_on_entering_a_mythic_dungeon_before_the_key(self):
-        self.fake.instance = self.lua.table(type="party", difficulty=23)  # Mythic, no key yet
+    def dungeon(self, difficulty, name="Test Dungeon", id=1234):
+        return self.lua.table(name=name, type="party", difficulty=difficulty, id=id)
+
+    def outside(self):
+        return self.lua.table(name="Somewhere", type="none", difficulty=0, id=0)
+
+    def test_logging_starts_on_entering_a_keystone_dungeon_before_the_key(self):
+        self.fake.instance = self.dungeon(23)  # Mythic, no key yet
         self.fake.fire("PLAYER_ENTERING_WORLD")
         self.assertTrue(self.fake.logging)
         self.assertTrue(self.g.PullwiseDB.loggingByUs)
         printed = "\n".join(self.fake.printed.values())
         self.assertIn("on for this dungeon", printed)
-        self.assertEqual(self.fake.cvars.advancedCombatLogging, "1")
         self.assertIn("Advanced Combat Logging turned on", printed)
+        # The setting was on before the log's first line was written, which fixes its layout.
+        self.assertEqual(self.fake.headerAdvanced, "1")
+        self.assertTrue(self.g.PullwiseDB.advancedLoggingSet)
         # The key starts: already logging, so the game's call budget isn't spent again.
         self.fake.activeMap = 9999
-        self.fake.instance = self.lua.table(type="party", difficulty=8)
+        self.fake.instance = self.dungeon(8)
         self.fake.fire("CHALLENGE_MODE_START", 9999)
         self.assertTrue(self.fake.logging)
         # Leaving the dungeon stops it.
         self.fake.activeMap = None
-        self.fake.instance = self.lua.table(type="none", difficulty=0)
+        self.fake.instance = self.outside()
         self.fake.fire("PLAYER_ENTERING_WORLD")
         self.assertFalse(self.fake.logging)
         self.assertIsNone(self.g.PullwiseDB.loggingByUs)
 
-    def test_advanced_logging_already_on_is_not_mentioned(self):
+    def test_a_key_started_with_logging_off_says_key(self):
+        self.fake.instance = self.dungeon(8)
+        self.fake.fire("CHALLENGE_MODE_START", 9999)  # the game hasn't set the active map yet
+        self.assertIn("on for this key", "\n".join(self.fake.printed.values()))
+
+    def test_advanced_logging_is_set_once_and_then_left_to_the_player(self):
         self.fake.cvars.advancedCombatLogging = "1"
-        self.fake.instance = self.lua.table(type="party", difficulty=8)
+        self.fake.instance = self.dungeon(8)
         self.fake.fire("PLAYER_ENTERING_WORLD")
         self.assertTrue(self.fake.logging)
         self.assertNotIn("Advanced Combat Logging", "\n".join(self.fake.printed.values()))
+        # Turned off on purpose later: a new session does not turn it back on.
+        lua2, g2, _ = start("{ routes = {}, advancedLoggingSet = true }")
+        g2.FAKE.cvars.advancedCombatLogging = "0"
+        g2.FAKE.instance = lua2.table(name="Test Dungeon", type="party", difficulty=8, id=1)
+        g2.FAKE.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(g2.FAKE.logging)
+        self.assertEqual(g2.FAKE.cvars.advancedCombatLogging, "0")
 
-    def test_a_normal_dungeon_is_not_logged(self):
-        self.fake.instance = self.lua.table(type="party", difficulty=2)  # Heroic
+    def test_a_normal_or_old_dungeon_is_not_logged(self):
+        self.fake.instance = self.dungeon(2)  # Heroic
         self.fake.fire("PLAYER_ENTERING_WORLD")
         self.assertFalse(self.fake.logging)
+        self.fake.instance = self.dungeon(23, name="Old Dungeon")  # Mythic, not this season's
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertFalse(self.fake.logging)
+
+    def test_a_reload_after_the_key_is_done_does_not_start_a_new_log(self):
+        self.fake.instance = self.dungeon(8)
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(self.fake.logging)
+        self.fake.fire("CHALLENGE_MODE_COMPLETED")
+        self.fake.runTimers()
+        self.assertFalse(self.fake.logging)
+        self.fake.fire("PLAYER_ENTERING_WORLD")  # /reload for the loot, still inside
+        self.assertFalse(self.fake.logging)
+        # The next visit to the same dungeon is a fresh one.
+        self.fake.instance = self.outside()
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.fake.instance = self.dungeon(23)
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(self.fake.logging)
+
+    def test_a_throttled_stop_does_not_turn_off_the_next_dungeons_log(self):
+        self.fake.instance = self.dungeon(8)
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(self.fake.logging)
+        self.fake.instance = self.outside()
+        self.fake.logThrottled = 1  # the stop is refused; a retry waits 10 seconds
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.assertTrue(self.fake.logging)
+        self.fake.instance = self.dungeon(23, id=5678)  # in the next dungeon before it fires
+        self.fake.fire("PLAYER_ENTERING_WORLD")
+        self.fake.runTimers()
+        self.assertTrue(self.fake.logging)
+        self.assertTrue(self.g.PullwiseDB.loggingByUs)
+
+    def test_one_retry_at_a_time(self):
+        self.fake.instance = self.dungeon(23)
+        self.fake.logThrottled = 2
+        self.fake.fire("PLAYER_ENTERING_WORLD")  # refused: a retry is pending
+        self.fake.activeMap = 9999
+        self.fake.fire("CHALLENGE_MODE_START", 9999)  # must not spend more calls now
+        self.assertEqual(self.fake.logThrottled, 0)
+        self.assertFalse(self.fake.logging)
+        self.fake.runTimers()
+        self.assertTrue(self.fake.logging)
 
     def test_logging_the_player_started_is_left_alone(self):
         self.fake.logging = True
