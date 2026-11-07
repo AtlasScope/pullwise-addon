@@ -10,10 +10,12 @@ local GREY = "|cffa0a0a0"
 local WIDTH = 320
 local ROW_GAP = 6
 
+-- The dungeon's name as the game gives it, or "Dungeon <id>" when the game can't say.
 local function dungeonName(id)
   local name = C_ChallengeMode and C_ChallengeMode.GetMapUIInfo and C_ChallengeMode.GetMapUIInfo(id)
   return name or ("Dungeon " .. id)
 end
+Window.DungeonName = dungeonName
 
 local function bossName(id)
   local name = EJ_GetEncounterInfo and EJ_GetEncounterInfo(id)

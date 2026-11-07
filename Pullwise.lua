@@ -9,7 +9,6 @@ local db
 local function say(text)
   print("|cffd4af37Pullwise:|r " .. text)
 end
-ns.Say = say
 
 local function savedIds()
   local ids = {}
@@ -20,10 +19,7 @@ local function savedIds()
   return ids
 end
 
-local function dungeonName(id)
-  local name = C_ChallengeMode.GetMapUIInfo and C_ChallengeMode.GetMapUIInfo(id)
-  return name or ("Dungeon " .. id)
-end
+local dungeonName = ns.Window.DungeonName -- RouteWindow.lua loads first (Pullwise.toc)
 
 local function show(id)
   db.shown = id
